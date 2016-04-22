@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8">
+
+    <title>Microservices in Ruby</title>
+
+		<meta name="description" content="A framework for easily creating beautiful presentations using HTML">
+		<meta name="author" content="Teodor Pripoae">
+
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+
+		<link rel="stylesheet" href="css/reveal.css">
+		<link rel="stylesheet" href="css/theme/black.css" id="theme">
+
+		<!-- Code syntax highlighting -->
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+
+		<!-- Printing and PDF exports -->
+		<script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+		</script>
+
+		<!--[if lt IE 9]>
+		<script src="lib/js/html5shiv.js"></script>
+		<![endif]-->
+	</head>
+
+	<body>
+
+		<div class="reveal">
+
+			<!-- Any section element inside of this container is displayed as a slide -->
+			<div class="slides">
+				<section>
+					<h2>Microservices in Ruby</h2>
+					<h4>Chisinau Ruby Meetup April 2016</h4>
+					<p>
+            <small><a href="https://github.com/teodor-pripoae">Teodor Pripoae</a></small>
+					</p>
+				</section>
+
+				<section>
+					<h2>Contents</h2>
+          <ul>
+            <li>Why Microservices ?</li>
+            <li>Challenges</li>
+            <li>Best practices</li>
+            <li>Deployment</li>
+            <li>Monitoring</li>
+            <li>Case Study: Kuende</li>
+          </ul>
+				</section>
+
+        <!-- Why Microservices-->
+				<section>
+					<h2>Why Microservices ?</h2>
+					<ul>
+						<li class="fragment">Less complexity</li>
+						<li class="fragment">Faster code iteration</li>
+						<li class="fragment">Separation of responsibility</li>
+						<li class="fragment">Easier to onboard new developers</li>
+						<li class="fragment">You can choose the best tools for the task</li>
+						<li class="fragment">Fault tolerance</li>
+					</ul>
+        </section>
+				<!-- /Why microservices -->
+
+				<!-- Challenges -->
+				<section>
+					<h2>Challenges</h2>
+					<ul>
+						<li class="fragment">Communication</li>
+						<li class="fragment">Authentication / Authorization</li>
+						<li class="fragment">Deployment</li>
+						<li class="fragment">Process monitoring</li>
+						<li class="fragment">Load balancing</li>
+						<li class="fragment">Service discovery</li>
+						<li class="fragment">Debugging</li>
+					</ul>
+				</section>
+				<!-- /Challenges -->
+
+				<!-- Cummunication -->
+				<section>
+					<section>
+						<h2>Communication</h2>
+						<ul>
+							<li class="fragment">REST API (HTTP + JSON)</li>
+							<li class="fragment">Async MQ (RabbitMQ or Kafka)</li>
+							<li class="fragment">RPC (gRPC, Thrift, MessagePack, 0MQ)</li>
+						</ul>
+					</section>
+
+					<section>
+						<h2>Best practices</h2>
+						<ul>
+							<li class="fragment">Avoid HTTP or RPC</li>
+							<li class="fragment">Use eventual consistency</li>
+							<li class="fragment">Duplicate data between services</li>
+							<li class="fragment">Use and enforce schema</li>
+						</ul>
+					</section>
+
+					<section>
+						<h2>Thrift</h2>
+
+						<pre>
+		          <code data-trim style="max-height: 650px; font-size: 0.7em; line-height: 1.3em">
+enum UserType {
+  USER = 1,
+  ADMIN = 2
+}
+
+struct User {
+  1: i32 id,
+  2: string name,
+  3: string email,
+  4: UserType user_type
+}
+
+struct UserCreateRequest {
+  1: string name,
+  2: string email,
+  3: UserType user_type
+}
+
+service UserService {
+  User get(1:int id);
+  User create(1:string name, 2:string email, 3:string user_type)
+  // or using request object
+  User create(1:UserCreateRequest request)
+}
+							</code>
+						</pre>
+					</section>
+
+					<section>
+						<h2>Async communication</h2>
+
+						<pre>
+							<code data-trim style="max-height: 650px; font-size: 0.7em; line-height: 1.3em">
+# registration_email_consumer.rb
+class RegistrationEmailConsumer
+  include Hutch::Consumer
+  consume 'main.user.created'
+
+  def process(payload)
+    # ... send email
+  end
+end
+
+# from user app
+user = User.create(...)
+Hutch.publish('main.user.created', user.to_thrift)
+							</code>
+						</pre>
+					</section>
+				</section>
+			</section>
+				<!-- /Cummunication -->
+
+				<!-- Authentication / Authorization -->
+				<section>
+					<h2>Authentication / Authorization</h2>
+					<ul>
+						<li class="fragment">Cookie authentication</li>
+						<li class="fragment">Central session storage (Redis)</li>
+						<li class="fragment">API Gateway</li>
+					</ul>
+				</section>
+				<!-- /Authentication / Authorization -->
+
+				<!-- Deployment -->
+				<section>
+					<h2>Deployment</h2>
+					<ul>
+						<li class="fragment">Automate everything</li>
+						<li class="fragment">Use CI / CD</li>
+						<li class="fragment">Package builds (Docker, JAR, executable)</li>
+						<li class="fragment">Use a cluster manager (DCOS, K8s, Docker swarm)</li>
+					</ul>
+				</section>
+				<!-- /Deployment -->
+
+				<!-- Service Discovery -->
+				<section>
+					<h2>LB / Service Discovery</h2>
+					<ul>
+						<li class="fragment">DNS (SkyDNS)</li>
+						<li class="fragment">Etcd, Zookeeper, Consul</li>
+						<li class="fragment">Linkerd, Vulcand, Hystrix</li>
+					</ul>
+				</section>
+				<!-- /Service Discovery -->
+
+				<!-- Debugging -->
+				<section>
+					<h2>Monitoring / Logging</h2>
+					<ul>
+						<li class="fragment">Statsd + Grafana</li>
+						<li class="fragment">Prometheus</li>
+						<li class="fragment">Riemann</li>
+						<li class="fragment">Zipkin</li>
+						<li class="fragment">New Relic</li>
+						<li class="fragment">Logstash / Fluentd</li>
+					</ul>
+				</section>
+				<!-- /Debugging -->
+
+				<!-- Case Study -->
+				<section>
+					<h2>Case Study: Kuende</h2>
+					<ul>
+						<li class="fragment">Mesos / DCOS</li>
+						<li class="fragment">Vulcand + Etcd</li>
+						<li class="fragment">Grape API</li>
+						<li class="fragment">Hutch / Karafka</li>
+						<li class="fragment">Sidekiq</li>
+						<li class="fragment">Sequel</li>
+					</ul>
+				</section>
+				<!-- /Case Study -->
+
+	      <!-- Useful links -->
+	      <section>
+	        <section>
+	          <h1>Useful links</h1>
+	        </section>
+
+	        <section>
+	          <ol>
+	            <li><a href="https://dcos.io/">DC/OS</a></li>
+							<li><a href="https://github.com/vulcand/vulcand">Vulcand</a>
+							<li><a href="https://linkerd.io/">Linkerd</a></li>
+	            <li><a href="https://github.com/ruby-grape/grape">Grape API</a></li>
+	            <li><a href="https://github.com/gocardless/hutch">Hutch</a></li>
+	            <li><a href="https://github.com/karafka/karafka">Karafka</a></li>
+	            <li><a href="https://github.com/mperham/sidekiq">Sidekiq</a></li>
+	            <li><a href="https://github.com/Netflix/Hystrix">Hystrix</a></li>
+							<li><a href="http://grafana.org/">Grafana</a></li>
+							<li><a href="https://github.com/kuende/backend-ruby-app">MicroServices Template</a></li>
+	          </ol>
+	        </section>
+	      </section>
+	      <!-- /Useful links -->
+
+				<!-- Hiring -->
+				<section>
+					<h3>We are hiring! </h3>
+					<p>If you are interested, send me an email at</p>
+					<h4>toni@kuende.com</h4>
+				</section>
+				<!-- /Hiring -->
+			</div>
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.js"></script>
+
+		<script>
+
+			// Full list of configuration options available at:
+			// https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				controls: true,
+				progress: true,
+				history: true,
+				center: true,
+
+				transition: 'slide', // none/fade/slide/convex/concave/zoom
+
+				// Optional reveal.js plugins
+				dependencies: [
+					{ src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+					{ src: 'plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/highlight/highlight.js', async: true, condition: function() { return !!document.querySelector( 'pre code' ); }, callback: function() { hljs.initHighlightingOnLoad(); } },
+					{ src: 'plugin/zoom-js/zoom.js', async: true },
+					{ src: 'plugin/notes/notes.js', async: true }
+				]
+			});
+
+		</script>
+
+	</body>
+</html>
